@@ -1,5 +1,6 @@
 use std::{env, fs, io::Write};
 
+use rand::random;
 use reqwest::{Client, RequestBuilder};
 use scraper::{selectable::Selectable, ElementRef, Html, Selector};
 use serde::Serialize;
@@ -8,10 +9,13 @@ use tokio::task::{self, JoinHandle};
 #[derive(Serialize, Debug, Clone)]
 struct SportVisionProduct {
     image_url: String,
+    image_url_high_res: String,
     brand_name: String,
     title: String,
     short_description: String,
     current_price: String,
+    id: String,
+    stock: u8,
 }
 
 impl SportVisionProduct {
@@ -25,6 +29,19 @@ impl SportVisionProduct {
                 .trim(),
         );
         image_url.insert_str(0, "https://sportvision.rs");
+        let image_url_high_res = image_url
+            .replace("thumbs_350", "thumbs_800")
+            .replace("350_350px", "800_800px");
+        let id = String::from(
+            div.select(&Selector::parse(".text-wrapper .category-wrapper span").unwrap())
+                .next()
+                .unwrap()
+                .text()
+                .next()
+                .unwrap()
+                .trim(),
+        );
+        let stock: u8 = random::<u8>() / 2;
         let brand_name = (if let Some(innerr) = div
             .select(&Selector::parse(".text-wrapper .brand a").unwrap())
             .next()
@@ -64,10 +81,13 @@ impl SportVisionProduct {
         );
         SportVisionProduct {
             image_url,
+            image_url_high_res,
             brand_name,
             title,
             short_description,
             current_price,
+            id,
+            stock,
         }
     }
 }
