@@ -1,10 +1,35 @@
-use std::{env, fs, io::Write};
+use std::{fs, io::Write, path::PathBuf};
 
+use clap::Parser;
 use rand::random;
 use reqwest::{Client, RequestBuilder};
 use scraper::{selectable::Selectable, ElementRef, Html, Selector};
 use serde::Serialize;
 use tokio::task::{self, JoinHandle};
+
+#[derive(Parser)]
+#[command(version, about = "web-scraping proizvoda sa sportvision.rs")]
+struct Cli {
+    /// Uzima prozivode od prve stranice do LAST_PAGE
+    #[arg(short, long, value_name = "LAST_PAGE")]
+    proizvodi: Option<u16>,
+
+    /// Uzima odecu od prve stranice do LAST_PAGE
+    #[arg(short = 'd', long, value_name = "LAST_PAGE")]
+    odeca: Option<u16>,
+
+    /// Uzima obucu od prve stranice do LAST_PAGE
+    #[arg(short = 'b', long, value_name = "LAST_PAGE")]
+    obuca: Option<u16>,
+
+    /// Uzima opremu od prve stranice do LAST_PAGE
+    #[arg(short, long, value_name = "LAST_PAGE")]
+    oprema: Option<u16>,
+
+    /// Fajl u kome se cuvaju prozivodi
+    #[arg(value_name = "FILE")]
+    file: PathBuf,
+}
 
 #[derive(Serialize, Debug, Clone)]
 struct SportVisionProduct {
@@ -94,27 +119,44 @@ impl SportVisionProduct {
 
 #[tokio::main]
 async fn main() {
-    let last_page: u16 = env::args()
-        .nth(1)
-        .expect("Expected 1 argument, got 0")
-        .parse()
-        .expect("Argument should be a non-negative number");
+    let cli = Cli::parse();
 
     let mut products: Vec<SportVisionProduct> = vec![];
     let klijent = Client::new();
     let mut join_handles: Vec<JoinHandle<Vec<SportVisionProduct>>> = vec![];
 
-    for page in 0..=last_page {
-        let request = klijent.get(format!("https://sportvision.rs/proizvodi/page-{page}"));
-        join_handles.push(task::spawn(get_products(request)));
+    if let Some(last_page) = cli.proizvodi {
+        for page in 0..last_page {
+            let request = klijent.get(format!("https://sportvision.rs/proizvodi/page-{page}"));
+            join_handles.push(task::spawn(get_products(request)));
+        }
     }
+    if let Some(last_page) = cli.odeca {
+        for page in 0..last_page {
+            let request = klijent.get(format!("https://sportvision.rs/odeca/page-{page}"));
+            join_handles.push(task::spawn(get_products(request)));
+        }
+    }
+    if let Some(last_page) = cli.obuca {
+        for page in 0..last_page {
+            let request = klijent.get(format!("https://sportvision.rs/obuca/page-{page}"));
+            join_handles.push(task::spawn(get_products(request)));
+        }
+    }
+    if let Some(last_page) = cli.oprema {
+        for page in 0..last_page {
+            let request = klijent.get(format!("https://sportvision.rs/oprema/page-{page}"));
+            join_handles.push(task::spawn(get_products(request)));
+        }
+    }
+
     for handle in join_handles {
         products.extend(handle.await.unwrap());
     }
 
-    let mut file = fs::File::create("products.json").expect("Couldn't open/create products.json");
+    let mut file = fs::File::create(cli.file).expect("Couldn't open json file for writing");
     file.write_all(serde_json::to_string_pretty(&products).unwrap().as_bytes())
-        .expect("Couldn't write to products.json");
+        .expect("Couldn't write to json file");
 }
 
 async fn get_products(request: RequestBuilder) -> Vec<SportVisionProduct> {
