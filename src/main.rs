@@ -41,6 +41,7 @@ struct SportVisionProduct {
     current_price: String,
     id: String,
     stock: u8,
+    discount: u8,
 }
 
 impl SportVisionProduct {
@@ -104,6 +105,14 @@ impl SportVisionProduct {
                 .unwrap()
                 .trim(),
         );
+        let discount: u8 = if let Some(x) = div
+            .select(&Selector::parse(".text-discount").unwrap())
+            .next()
+        {
+            x.text().next().unwrap().trim().parse().unwrap_or_default()
+        } else {
+            0
+        };
         SportVisionProduct {
             image_url,
             image_url_high_res,
@@ -113,6 +122,7 @@ impl SportVisionProduct {
             current_price,
             id,
             stock,
+            discount,
         }
     }
 }
